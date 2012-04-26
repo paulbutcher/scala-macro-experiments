@@ -16,7 +16,7 @@ object ExperimentsImpl {
       Select(
         New(TypeTree().setType(c.tag[T].tpe)),
         newTermName("<init>")),
-        List())
+      List())
   }
   
   def members[T: c.TypeTag](c: Context): c.Expr[List[_]] = {
@@ -25,10 +25,9 @@ object ExperimentsImpl {
     Apply(
       Select(
         Select(
-          This(
-            staticModule("scala.collection.immutable").moduleClass),
-            newTermName("List")),
-          newTermName("apply")),
+          This(staticModule("scala.collection.immutable").moduleClass),
+          newTermName("List")),
+        newTermName("apply")),
       ms.toList)
   }
 }
