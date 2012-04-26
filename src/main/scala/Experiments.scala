@@ -5,7 +5,7 @@ object Experiments {
   
   def myNew[T]: T = macro ExperimentsImpl.myNew[T]
   
-  def members[T]: List[Any] = macro ExperimentsImpl.members[T]
+  def members[T]: List[String] = macro ExperimentsImpl.members[T]
 }
 
 object ExperimentsImpl {
