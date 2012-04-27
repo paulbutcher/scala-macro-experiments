@@ -12,15 +12,21 @@ object ExperimentsImpl {
     import c.mirror._
     import reflect.api.Modifier._
     
-    def methodDef(m: Symbol) =
-      DefDef(
-        Modifiers(),
-        m.name, 
-        List(), 
-        List(),
-        Ident(newTypeName("Unit")),
-        Literal(Constant(()))
-      )
+    def methodDef(m: Symbol, t: Type) = {
+      m.asTypeIn(t) match {
+        case NullaryMethodType(result) =>
+          DefDef(
+            Modifiers(),
+            m.name, 
+            List(), 
+            List(),
+            TypeTree(),
+            TypeApply(
+              Select(Literal(Constant(null)), newTermName("asInstanceOf")), 
+              List(TypeTree().setType(result))))
+        case _ => sys.error("Don't know how to handle "+ m)
+      }
+    }
     
     // def <init>() = { super.<init>(); () }
     def initDef = 
@@ -53,7 +59,7 @@ object ExperimentsImpl {
                 Template(
                   List(ttree), 
                   emptyValDef,
-                  initDef +: (methodsToImplement map (m => methodDef(m))).toList))),
+                  initDef +: (methodsToImplement map (m => methodDef(m, t))).toList))),
             Apply(
               Select(
                 New(Ident(newTypeName("$anon"))), 
