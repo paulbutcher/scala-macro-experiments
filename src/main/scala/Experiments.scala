@@ -73,7 +73,8 @@ object ExperimentsImpl {
         Ident(newTypeName("Unit")),
         Literal(Constant(()))
       )
-      
+    
+    // def <init>() = { super.<init>(); () }
     def initDef = 
       DefDef(
         Modifiers(), 
@@ -85,42 +86,37 @@ object ExperimentsImpl {
           List(
             Apply(
               Select(Super(This(newTypeName("")), newTypeName("")), newTermName("<init>")), 
-              List()
-            )
-          ), 
-          Literal(Constant(()))
-        )
-      )
-    
+              List())), 
+          Literal(Constant(()))))
+      
+    def isMemberOfObject(m: Symbol) = TypeTag.Object.tpe.member(m.name) != NoSymbol
+
+    // { final class $anon extends T { ... }; new $anon() }.asInstanceOf[T])
+    def anonClass(t: Type, methodsToImplement: Iterable[Symbol]) = {
+      val ttree = TypeTree().setType(t)
+      TypeApply(
+        Select(
+          Block(
+            List(
+              ClassDef(
+                Modifiers(Set(`final`)), 
+                newTypeName("$anon"),
+                List(),
+                Template(
+                  List(ttree), 
+                  emptyValDef,
+                  initDef +: (methodsToImplement map (m => methodDef(m))).toList))),
+            Apply(
+              Select(
+                New(Ident(newTypeName("$anon"))), 
+                newTermName("<init>")), 
+              List())),
+          newTermName("asInstanceOf")),
+        List(ttree))
+    }
+        
     val t = c.tag[T].tpe
-    val tt = TypeTree().setType(t)
-    TypeApply(
-      Select(
-        Block(
-          List(
-            ClassDef(
-              Modifiers(Set(`final`)), 
-              newTypeName("$anon"),
-              List(),
-              Template(
-                List(tt), 
-                emptyValDef,
-                List(initDef, methodDef(t.member(newTermName("m1"))), methodDef(t.member(newTermName("m2"))))
-//                initDef +: (t.members map (m => methodDef(m))).toList
-              )
-            )
-          ),
-          Apply(
-            Select(
-              New(Ident(newTypeName("$anon"))), 
-              newTermName("<init>")
-            ), 
-            List()
-          )
-        ),
-        newTermName("asInstanceOf")
-      ),
-      List(tt)
-    )
+    val methodsToImplement = t.members filterNot (m => isMemberOfObject(m))
+    anonClass(t, methodsToImplement)
   }
 }
