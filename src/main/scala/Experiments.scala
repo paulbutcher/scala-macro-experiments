@@ -10,6 +10,8 @@ object Experiments {
   def firstMember[T] = macro ExperimentsImpl.firstMember[T]
   
   def isCurried[T] = macro ExperimentsImpl.isCurried[T]
+  
+  def implement[T] = macro ExperimentsImpl.implement[T]
 }
 
 object ExperimentsImpl {
@@ -56,5 +58,69 @@ object ExperimentsImpl {
       }
     }
     reify(())
+  }
+  
+  def implement[T: c.TypeTag](c: Context): c.Expr[T] = {
+    import c.mirror._
+    import reflect.api.Modifier._
+    
+    def methodDef(m: Symbol) =
+      DefDef(
+        Modifiers(),
+        m.name, 
+        List(), 
+        List(),
+        Ident(newTypeName("Unit")),
+        Literal(Constant(()))
+      )
+      
+    def initDef = 
+      DefDef(
+        Modifiers(), 
+        newTermName("<init>"), 
+        List(), 
+        List(List()), 
+        TypeTree(),
+        Block(
+          List(
+            Apply(
+              Select(Super(This(newTypeName("")), newTypeName("")), newTermName("<init>")), 
+              List()
+            )
+          ), 
+          Literal(Constant(()))
+        )
+      )
+    
+    val t = c.tag[T].tpe
+    val tt = TypeTree().setType(t)
+    TypeApply(
+      Select(
+        Block(
+          List(
+            ClassDef(
+              Modifiers(Set(`final`)), 
+              newTypeName("$anon"),
+              List(),
+              Template(
+                List(tt), 
+                emptyValDef,
+                List(initDef, methodDef(t.member(newTermName("m1"))), methodDef(t.member(newTermName("m2"))))
+//                initDef +: (t.members map (m => methodDef(m))).toList
+              )
+            )
+          ),
+          Apply(
+            Select(
+              New(Ident(newTypeName("$anon"))), 
+              newTermName("<init>")
+            ), 
+            List()
+          )
+        ),
+        newTermName("asInstanceOf")
+      ),
+      List(tt)
+    )
   }
 }
