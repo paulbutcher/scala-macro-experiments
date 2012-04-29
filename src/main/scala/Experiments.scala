@@ -12,18 +12,36 @@ object ExperimentsImpl {
     import c.mirror._
     import reflect.api.Modifier._
     
-    def methodDef(m: Symbol, t: Type) = {
-      m.asTypeIn(t) match {
-        case NullaryMethodType(result) =>
-          DefDef(
-            Modifiers(),
-            m.name, 
-            List(), 
-            List(),
-            TypeTree(),
-            TypeApply(
-              Select(Literal(Constant(null)), newTermName("asInstanceOf")), 
-              List(TypeTree().setType(result))))
+    def buildParams(params: List[Symbol], mt: Type) = {
+      List(
+        params map { p =>
+          val pt = p.asTypeIn(mt)
+          ValDef(
+            Modifiers(Set(parameter)),
+            newTermName(p.name.toString),
+            Ident(pt.typeSymbol),
+            EmptyTree
+          )
+        }
+      )
+    }
+    
+    def methodDef(name: Name, params: List[List[ValDef]], result: Type): DefDef = 
+      DefDef(
+        Modifiers(),
+        name, 
+        List(), 
+        params,
+        TypeTree(),
+        TypeApply(
+          Select(Literal(Constant(null)), newTermName("asInstanceOf")), 
+          List(TypeTree().setType(result))))
+    
+    def methodImpl(m: Symbol, t: Type): DefDef = {
+      val mt = m.asTypeIn(t) 
+      mt match {
+        case NullaryMethodType(result) => methodDef(m.name, List(), result)
+        case MethodType(params, result) => methodDef(m.name, buildParams(params, mt), result)
         case _ => sys.error("Don't know how to handle "+ m)
       }
     }
@@ -59,7 +77,7 @@ object ExperimentsImpl {
                 Template(
                   List(ttree), 
                   emptyValDef,
-                  initDef +: (methodsToImplement map (m => methodDef(m, t))).toList))),
+                  initDef +: (methodsToImplement map (m => methodImpl(m, t))).toList))),
             Apply(
               Select(
                 New(Ident(newTypeName("$anon"))), 
