@@ -12,26 +12,26 @@ object ExperimentsImpl {
     import c.mirror._
     import reflect.api.Modifier._
     
-    def buildParams(methodType: Type): List[List[ValDef]] = methodType match {
-        case MethodType(params, result) => {
-          val list = params map { p: Symbol =>
+    def finalResultType(methodType: Type): Type = methodType match {
+      case NullaryMethodType(result) => result 
+      case MethodType(_, result) => finalResultType(result)
+      case _ => methodType
+    }
+    
+    def paramss(methodType: Type): List[List[Symbol]] = methodType match {
+      case MethodType(params, result) => params :: paramss(result)
+      case _ => Nil
+    }
+    
+    def buildParams(methodType: Type) = paramss(methodType) map { params =>
+        params map { p =>
             ValDef(
               Modifiers(Set(parameter)),
               newTermName(p.name.toString),
               Ident(p.asTypeIn(methodType).typeSymbol),
               EmptyTree)
           }
-          list :: buildParams(result)
-        }
-
-        case _ => Nil
       }
-    
-    def finalResultType(methodType: Type): Type = methodType match {
-      case NullaryMethodType(result) => result 
-      case MethodType(_, result) => finalResultType(result)
-      case _ => methodType
-    }
     
     def methodDef(name: Name, params: List[List[ValDef]], result: Type): DefDef = 
       DefDef(
@@ -47,7 +47,7 @@ object ExperimentsImpl {
     def methodImpl(m: Symbol, t: Type): DefDef = {
       val mt = m.asTypeIn(t) 
       mt match {
-        case NullaryMethodType(_) => methodDef(m.name, List(), finalResultType(mt))
+        case NullaryMethodType(_) => methodDef(m.name, buildParams(mt), finalResultType(mt))
         case MethodType(_, _) => methodDef(m.name, buildParams(mt), finalResultType(mt))
         case _ => sys.error("Don't know how to handle "+ m)
       }
