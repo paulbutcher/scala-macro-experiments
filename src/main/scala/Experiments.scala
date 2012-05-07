@@ -71,7 +71,8 @@ object ExperimentsImpl {
     def isMemberOfObject(m: Symbol) = TypeTag.Object.tpe.member(m.name) != NoSymbol
 
     // { final class $anon extends T { ... }; new $anon() }.asInstanceOf[T])
-    def anonClass(t: Type, methodsToImplement: Iterable[Symbol]) = {
+    def anonClass(t: Type) = {
+      val methodsToImplement = t.members filterNot (m => isMemberOfObject(m))
       val ttree = TypeTree().setType(t)
       TypeApply(
         Select(
@@ -94,8 +95,6 @@ object ExperimentsImpl {
         List(ttree))
     }
         
-    val t = c.tag[T].tpe
-    val methodsToImplement = t.members filterNot (m => isMemberOfObject(m))
-    anonClass(t, methodsToImplement)
+    anonClass(c.tag[T].tpe)
   }
 }
