@@ -12,18 +12,25 @@ object ExperimentsImpl {
     import c.mirror._
     import reflect.api.Modifier._
     
-    def buildParams(params: List[Symbol], mt: Type) = {
-      List(
-        params map { p =>
-          val pt = p.asTypeIn(mt)
-          ValDef(
-            Modifiers(Set(parameter)),
-            newTermName(p.name.toString),
-            Ident(pt.typeSymbol),
-            EmptyTree
-          )
+    def buildParams(methodType: Type): List[List[ValDef]] = methodType match {
+        case MethodType(params, result) => {
+          val list = params map { p: Symbol =>
+            ValDef(
+              Modifiers(Set(parameter)),
+              newTermName(p.name.toString),
+              Ident(p.asTypeIn(methodType).typeSymbol),
+              EmptyTree)
+          }
+          list :: buildParams(result)
         }
-      )
+
+        case _ => Nil
+      }
+    
+    def finalResultType(methodType: Type): Type = methodType match {
+      case NullaryMethodType(result) => result 
+      case MethodType(_, result) => finalResultType(result)
+      case _ => methodType
     }
     
     def methodDef(name: Name, params: List[List[ValDef]], result: Type): DefDef = 
@@ -40,8 +47,8 @@ object ExperimentsImpl {
     def methodImpl(m: Symbol, t: Type): DefDef = {
       val mt = m.asTypeIn(t) 
       mt match {
-        case NullaryMethodType(result) => methodDef(m.name, List(), result)
-        case MethodType(params, result) => methodDef(m.name, buildParams(params, mt), result)
+        case NullaryMethodType(_) => methodDef(m.name, List(), finalResultType(mt))
+        case MethodType(_, _) => methodDef(m.name, buildParams(mt), finalResultType(mt))
         case _ => sys.error("Don't know how to handle "+ m)
       }
     }
