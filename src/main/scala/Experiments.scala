@@ -23,17 +23,20 @@ object ExperimentsImpl {
       case _ => Nil
     }
     
-    def buildParams(methodType: Type) = paramss(methodType) map { params =>
+    def buildParams(methodType: Type) =
+      paramss(methodType) map { params =>
         params map { p =>
-            ValDef(
-              Modifiers(Set(parameter)),
-              newTermName(p.name.toString),
-              Ident(p.asTypeIn(methodType).typeSymbol),
-              EmptyTree)
-          }
+          ValDef(
+            Modifiers(Set(parameter)),
+            newTermName(p.name.toString),
+            Ident(p.asTypeIn(methodType).typeSymbol),
+            EmptyTree)
+        }
       }
     
-    def methodDef(name: Name, params: List[List[ValDef]], result: Type): DefDef = 
+    def methodDef(name: Name, methodType: Type): DefDef = {
+      val params = buildParams(methodType)
+      val result = finalResultType(methodType)
       DefDef(
         Modifiers(),
         name, 
@@ -43,12 +46,13 @@ object ExperimentsImpl {
         TypeApply(
           Select(Literal(Constant(null)), newTermName("asInstanceOf")), 
           List(TypeTree().setType(result))))
+    }
     
     def methodImpl(m: Symbol, t: Type): DefDef = {
       val mt = m.asTypeIn(t) 
       mt match {
-        case NullaryMethodType(_) => methodDef(m.name, buildParams(mt), finalResultType(mt))
-        case MethodType(_, _) => methodDef(m.name, buildParams(mt), finalResultType(mt))
+        case NullaryMethodType(_) => methodDef(m.name, mt)
+        case MethodType(_, _) => methodDef(m.name, mt)
         case _ => sys.error("Don't know how to handle "+ m)
       }
     }
