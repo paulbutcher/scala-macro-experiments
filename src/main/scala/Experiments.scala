@@ -34,18 +34,24 @@ object ExperimentsImpl {
         }
       }
     
+    def buildApply(lhs: Tree, methodType: Type): Tree = methodType match {
+      case MethodType(params, result) => 
+        buildApply(Apply(lhs, params map { p => Ident(p.name) }), result)
+      case _ => lhs
+    }
+    
     def methodDef(name: Name, methodType: Type): DefDef = {
       val params = buildParams(methodType)
       val result = finalResultType(methodType)
+      val target = Select(Select(This(newTypeName("$anon")), newTermName("target")), name)
+      val body = buildApply(target, methodType)
       DefDef(
         Modifiers(),
         name, 
         List(), 
         params,
         TypeTree(),
-        TypeApply(
-          Select(Literal(Constant(null)), newTermName("asInstanceOf")), 
-          List(TypeTree().setType(result))))
+        body)
     }
     
     def methodImpl(m: Symbol, t: Type): DefDef = {
