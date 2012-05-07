@@ -3,12 +3,12 @@ import reflect.makro.Context
 object Experiments {
   import language.experimental.macros
   
-  def implement[T] = macro ExperimentsImpl.implement[T]
+  def implement[T](target: T) = macro ExperimentsImpl.implement[T]
 }
 
 object ExperimentsImpl {
   
-  def implement[T: c.TypeTag](c: Context): c.Expr[T] = {
+  def implement[T: c.TypeTag](c: Context)(target: c.Expr[T]): c.Expr[T] = {
     import c.mirror._
     import reflect.api.Modifier._
     
@@ -67,6 +67,12 @@ object ExperimentsImpl {
               Select(Super(This(newTypeName("")), newTypeName("")), newTermName("<init>")), 
               List())), 
           Literal(Constant(()))))
+          
+    def targetVal(t: Type) =
+      ValDef(Modifiers(), 
+        newTermName("target"), 
+        Ident(t.typeSymbol), 
+        target.tree)
       
     def isMemberOfObject(m: Symbol) = TypeTag.Object.tpe.member(m.name) != NoSymbol
 
@@ -85,7 +91,8 @@ object ExperimentsImpl {
                 Template(
                   List(ttree), 
                   emptyValDef,
-                  initDef +: (methodsToImplement map (m => methodImpl(m, t))).toList))),
+                  initDef +: targetVal(t) +: 
+                    (methodsToImplement map (m => methodImpl(m, t))).toList))),
             Apply(
               Select(
                 New(Ident(newTypeName("$anon"))), 
