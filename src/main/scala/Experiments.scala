@@ -11,13 +11,20 @@ object ExperimentsImpl {
   def implement[T: c.TypeTag](c: Context)(target: c.Expr[T]): c.Expr[T] = {
     import c.mirror._
     import reflect.api.Modifier._
-    
+
+    // Convert a methodType into its ultimate result type
+    // For nullary and normal methods, this is just the result type
+    // For curried methods, this is the final result type of the result type
     def finalResultType(methodType: Type): Type = methodType match {
       case NullaryMethodType(result) => result 
       case MethodType(_, result) => finalResultType(result)
       case _ => methodType
     }
     
+    // Convert a methodType into a list of list of params:
+    // UnaryMethodType => Nil
+    // Normal method => List(List(p1, p2, ...))
+    // Curried method => List(List(p1, p2, ...), List(q1, q2, ...), ...)
     def paramss(methodType: Type): List[List[Symbol]] = methodType match {
       case MethodType(params, result) => params :: paramss(result)
       case _ => Nil
@@ -39,7 +46,8 @@ object ExperimentsImpl {
         buildApply(Apply(lhs, params map { p => Ident(p.name) }), result)
       case _ => lhs
     }
-    
+
+    // def <|name|>(p1: T1, p2: T2, ...) = target.<|name|>(p1, p2, ...)
     def methodDef(name: Name, methodType: Type): DefDef = {
       val params = buildParams(methodType)
       val result = finalResultType(methodType)
@@ -111,7 +119,7 @@ object ExperimentsImpl {
           newTermName("asInstanceOf")),
         List(ttree))
     }
-        
-    anonClass(c.tag[T].tpe)
+
+    c.Expr(anonClass(c.tag[T].tpe))
   }
 }
