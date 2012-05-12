@@ -1,6 +1,6 @@
 name := "scala-macro-experiments"
 
-scalaVersion := "2.10.0-SNAPSHOT"
+scalaVersion := "2.10.0-M3"
 
 resolvers += "snaps" at "https://oss.sonatype.org/content/repositories/snapshots"
 
