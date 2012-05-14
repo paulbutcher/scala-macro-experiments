@@ -3,12 +3,12 @@ import reflect.makro.Context
 object Experiments {
   import language.experimental.macros
   
-  def implement[T](target: T) = macro ExperimentsImpl.implement[T]
+  def implement[T] = macro ExperimentsImpl.implement[T]
 }
 
 object ExperimentsImpl {
   
-  def implement[T: c.TypeTag](c: Context)(target: c.Expr[T]): c.Expr[T] = {
+  def implement[T: c.TypeTag](c: Context): c.Expr[T] = {
     import c.mirror._
     import reflect.api.Modifier._
 
@@ -41,18 +41,12 @@ object ExperimentsImpl {
         }
       }
     
-    def buildApply(lhs: Tree, methodType: Type): Tree = methodType match {
-      case MethodType(params, result) => 
-        buildApply(Apply(lhs, params map { p => Ident(p.name) }), result)
-      case _ => lhs
-    }
-
-    // def <|name|>(p1: T1, p2: T2, ...) = target.<|name|>(p1, p2, ...)
+    // def <|name|>(p1: T1, p2: T2, ...): T = null.asInstanceOf[T]
     def methodDef(name: Name, methodType: Type): DefDef = {
       val params = buildParams(methodType)
-      val result = finalResultType(methodType)
-      val target = Select(Select(This(newTypeName("$anon")), newTermName("target")), name)
-      val body = buildApply(target, methodType)
+      val body = TypeApply(
+                   Select(Literal(Constant(null)), newTermName("asInstanceOf")), 
+                   List(TypeTree().setType(finalResultType(methodType)))) 
       DefDef(
         Modifiers(),
         name, 
@@ -85,12 +79,6 @@ object ExperimentsImpl {
               Select(Super(This(newTypeName("")), newTypeName("")), newTermName("<init>")), 
               List())), 
           Literal(Constant(()))))
-          
-    def targetVal(t: Type) =
-      ValDef(Modifiers(), 
-        newTermName("target"), 
-        Ident(t.typeSymbol), 
-        target.tree)
       
     def isMemberOfObject(m: Symbol) = TypeTag.Object.tpe.member(m.name) != NoSymbol
 
@@ -109,8 +97,7 @@ object ExperimentsImpl {
                 Template(
                   List(ttree), 
                   emptyValDef,
-                  initDef +: targetVal(t) +: 
-                    (methodsToImplement map (m => methodImpl(m, t))).toList))),
+                  initDef +: (methodsToImplement map (m => methodImpl(m, t))).toList))),
             Apply(
               Select(
                 New(Ident(newTypeName("$anon"))), 
