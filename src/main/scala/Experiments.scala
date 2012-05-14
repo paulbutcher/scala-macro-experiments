@@ -21,7 +21,7 @@ object ExperimentsImpl {
       case _ => methodType
     }
     
-    // Convert a methodType into a list of list of params:
+    // Convert a methodType into a list of lists of params:
     // UnaryMethodType => Nil
     // Normal method => List(List(p1, p2, ...))
     // Curried method => List(List(p1, p2, ...), List(q1, q2, ...), ...)
