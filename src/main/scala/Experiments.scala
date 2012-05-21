@@ -18,6 +18,7 @@ object ExperimentsImpl {
     def finalResultType(methodType: Type): Type = methodType match {
       case NullaryMethodType(result) => result 
       case MethodType(_, result) => finalResultType(result)
+      case PolyType(_, result) => finalResultType(result)
       case _ => methodType
     }
     
@@ -27,18 +28,35 @@ object ExperimentsImpl {
     // Curried method => List(List(p1, p2, ...), List(q1, q2, ...), ...)
     def paramss(methodType: Type): List[List[Symbol]] = methodType match {
       case MethodType(params, result) => params :: paramss(result)
+      case PolyType(_, result) => paramss(result)
       case _ => Nil
     }
     
     def buildParams(methodType: Type) =
       paramss(methodType) map { params =>
         params map { p =>
+          val paramType = p.asTypeIn(methodType).typeSymbol
+          val paramTypeTree = 
+            if (paramType.modifiers contains parameter)
+              Ident(newTypeName(paramType.name.toString))
+            else
+              Ident(paramType)
+              
           ValDef(
             Modifiers(Set(parameter)),
             newTermName(p.name.toString),
-            Ident(p.asTypeIn(methodType).typeSymbol),
+            paramTypeTree,
             EmptyTree)
         }
+      }
+    
+    def buildTypeParams(methodType: Type) =
+      methodType.typeParams map { t => 
+        TypeDef(
+          Modifiers(Set(parameter)),
+          newTypeName(t.name.toString), 
+          List(), 
+          TypeBoundsTree(Ident(staticClass("scala.Nothing")), Ident(staticClass("scala.Any"))))
       }
     
     // def <|name|>(p1: T1, p2: T2, ...): T = null.asInstanceOf[T]
@@ -50,7 +68,7 @@ object ExperimentsImpl {
       DefDef(
         Modifiers(),
         name, 
-        List(), 
+        buildTypeParams(methodType), 
         params,
         TypeTree(),
         body)
@@ -61,7 +79,8 @@ object ExperimentsImpl {
       mt match {
         case NullaryMethodType(_) => methodDef(m.name, mt)
         case MethodType(_, _) => methodDef(m.name, mt)
-        case _ => sys.error("Don't know how to handle "+ m)
+        case PolyType(_, _) => methodDef(m.name, mt)
+        case _ => sys.error("Don't know how to handle "+ mt.getClass)
       }
     }
     
