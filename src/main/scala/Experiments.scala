@@ -10,7 +10,8 @@ object ExperimentsImpl {
   
   def implement[T: c.TypeTag](c: Context): c.Expr[T] = {
     import c.mirror._
-    import reflect.api.Modifier._
+    import c.universe._
+    import Flag._
 
     // Convert a methodType into its ultimate result type
     // For nullary and normal methods, this is just the result type
@@ -35,15 +36,15 @@ object ExperimentsImpl {
     def buildParams(methodType: Type) =
       paramss(methodType) map { params =>
         params map { p =>
-          val paramType = p.asTypeIn(methodType).typeSymbol
+          val paramType = p.typeSignatureIn(methodType).typeSymbol
           val paramTypeTree = 
-            if (paramType.modifiers contains parameter)
+            if (paramType hasFlag PARAM)
               Ident(newTypeName(paramType.name.toString))
             else
               Ident(paramType)
               
           ValDef(
-            Modifiers(Set(parameter)),
+            Modifiers(PARAM),
             newTermName(p.name.toString),
             paramTypeTree,
             EmptyTree)
@@ -53,7 +54,7 @@ object ExperimentsImpl {
     def buildTypeParams(methodType: Type) =
       methodType.typeParams map { t => 
         TypeDef(
-          Modifiers(Set(parameter)),
+          Modifiers(PARAM),
           newTypeName(t.name.toString), 
           List(), 
           TypeBoundsTree(Ident(staticClass("scala.Nothing")), Ident(staticClass("scala.Any"))))
@@ -75,7 +76,7 @@ object ExperimentsImpl {
     }
     
     def methodImpl(m: Symbol, t: Type): DefDef = {
-      val mt = m.asTypeIn(t) 
+      val mt = m.typeSignatureIn(t) 
       mt match {
         case NullaryMethodType(_) => methodDef(m.name, mt)
         case MethodType(_, _) => methodDef(m.name, mt)
@@ -110,7 +111,7 @@ object ExperimentsImpl {
           Block(
             List(
               ClassDef(
-                Modifiers(Set(`final`)), 
+                Modifiers(FINAL), 
                 newTypeName("$anon"),
                 List(),
                 Template(
@@ -126,6 +127,6 @@ object ExperimentsImpl {
         List(ttree))
     }
 
-    c.Expr(anonClass(c.tag[T].tpe))
+    c.Expr(anonClass(typeTag[T].tpe))
   }
 }
